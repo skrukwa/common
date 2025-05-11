@@ -336,7 +336,7 @@ function _postProcessGetLists(lists: iList[], options: Omit<IGetListsOptions, "i
 
 export function GetLists(siteUrl: string, options: IGetListsOptions = {}): Promise<iList[]> {
     let url = _getListsRequestUrl(siteUrl, options);
-    const allowCache = options.allowCache === undefined ? true : false;
+    const allowCache = options.allowCache === undefined ? true : options.allowCache;
     return GetJson<{ value: iList[]; }>(url, null, { allowCache, jsonMetadata: jsonTypes.nometadata })
         .then(result => {
             return _postProcessGetLists(result.value, options);
