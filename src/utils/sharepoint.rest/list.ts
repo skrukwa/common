@@ -1,4 +1,4 @@
-import {__getSPRestErrorData, jsonClone} from "../../exports-index";
+import { __getSPRestErrorData, jsonClone } from "../../exports-index";
 import { PushNoDuplicate, firstOrNull, makeUniqueArray, toHash } from "../../helpers/collections.base";
 import { jsonStringify } from "../../helpers/json";
 import { NormalizeListName, SPBasePermissions, SchemaJsonToXml, SchemaXmlToJson, extendFieldInfos } from "../../helpers/sharepoint";
