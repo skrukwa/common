@@ -1,3 +1,4 @@
+import { promiseLock } from "../../exports-index";
 import { sortArray } from "../../helpers/collections.base";
 import { jsonStringify } from "../../helpers/json";
 import { getGlobal } from "../../helpers/objects";
@@ -933,6 +934,14 @@ export async function SPServerLocalTime(siteUrl: string) {
 
     var newdate = new Date(+now - clientNowServerDelta);
     return toIsoDateFormat(newdate, { omitZ: true });
+}
+
+export async function SPServerLocalToday(siteUrl: string) {
+    siteUrl = GetSiteUrl(siteUrl);
+
+    return promiseLock(`SPServerLocalToday)_${siteUrl}`, async () => {
+        return SPServerLocalTime(siteUrl);
+    }, 30000);
 }
 
 export function GetContextWebInformationSync(siteUrl: string): IContextWebInformation {

@@ -14,17 +14,18 @@ function _getGlobal() {
  * Lock all concurrent calls to a resource to one promise for a set duration of time.
  * @param {string} key - Unique key to identify the promise.
  * @param {() => Promise<T>} promiseFunc - Function that will return the promise to be run only once.
- * @param {number} duration - Duration to hold on to the promise result. (default=1)
+ * @param {number} duration - Duration in milliseconds to hold on to the promise result. (default=1000)
  * @returns {Promise<T>} Returns the single promise that will be fullfilled for all promises with the same key.
  * @example
  * // returns Promise<string>
  * var initTests = await promiseLock<string>("initTests", async () => { ... }, 2); 
  */
-export async function promiseLock<T>(key: string, promiseFunc: () => Promise<T>, duration = 1): Promise<T> {
+export async function promiseLock<T>(key: string, promiseFunc: () => Promise<T>, duration = 1000): Promise<T> {
+    duration = isNumber(duration) && duration >= 1 ? duration : 1000
     return promiseOnce(key, promiseFunc).then((result) => {
         (globalThis || window).setTimeout(() => {
             _deletePromiseByKey(key);
-        }, isNumber(duration) && duration >= 1 ? duration : 1);
+        }, duration);
         return result;
     });
 }
