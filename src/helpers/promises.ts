@@ -153,6 +153,37 @@ export async function retryAsync<T>(fn: (...args) => Promise<T>, numberOfRetries
     throw new Error(`Failed retrying ${numberOfRetries} times`);
 }
 
+/**
+ * Provides the ability to have a promise/async funciton be exceuted with a timeout
+ * @param {number} fn - Promise to execute.
+ * @param {number} timeout - Timeout length in milliseconds.
+ * @returns {Promise<T>} Returns promise result or the promise is rejected error with a message of 'Timeout'.
+ */
+export async function promiseWithTimeout<T>(fn: Promise<T>, timeout: number) {
+    return Promise
+        .race([
+            fn,
+            new Promise((resolve, reject) =>
+                setTimeout(() => reject(new Error('Timeout')), timeout)
+            )
+        ]) as Promise<T>;
+}
+
+export async function promiseWithAbort<T>(fn: Promise<T>, options: { signal: AbortSignal }) {
+    return new Promise<T>((resolve, reject) => {
+        const { signal } = options;
+        if (signal.aborted) {
+            return reject(signal.reason)
+        }
+        signal.addEventListener("abort", () => {
+            reject(signal.reason)
+        })
+        fn.then((result) => {
+            resolve(result);
+        });
+    });
+}
+
 function _deletePromiseByKey(key: string) {
     let _global = _getGlobal();
     let promises = _global.promises;
