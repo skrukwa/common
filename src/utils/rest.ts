@@ -162,11 +162,9 @@ function configureXhrHeaders(url: string, body?: IRequestBody, options?: IRestOp
         myOptions.headers["Accept"] = jsonType;
     }
 
-    let method = myOptions.method;
-    if (isNullOrEmptyString(method)) {
-        method = isNullOrUndefined(body) ? "GET" : "POST";
+    if (isNullOrEmptyString(myOptions.method)) {
+        myOptions.method = isNullOrUndefined(body) ? "GET" : "POST";
     }
-    myOptions.method = method;
 
     if (method === "POST" && isNullOrUndefined(myOptions.headers["content-type"])) {
         myOptions.headers["content-type"] = jsonType;
