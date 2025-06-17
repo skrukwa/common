@@ -49,7 +49,7 @@ export function GetFileSiteUrl(fileUrl: string): string {
  * If you send a guid - it will look for a site with that ID in the current context site collection
  */
 export function GetSiteUrl(siteUrlOrId?: string): string {
-    if (!isNullOrUndefined && isValidGuid(siteUrlOrId)) {
+    if (!isNullOrUndefined(siteUrlOrId) && isValidGuid(siteUrlOrId)) {
         const webInfo = GetWebInfoSync(null, siteUrlOrId);
         return makeServerRelativeUrl(normalizeUrl(webInfo.ServerRelativeUrl, true));
     }
