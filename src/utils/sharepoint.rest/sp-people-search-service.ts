@@ -1,3 +1,4 @@
+import { isString } from "../../exports-index";
 import { firstIndexOf } from "../../helpers/collections.base";
 import { contentTypes, jsonTypes } from "../../types/rest.types";
 import { PrincipalType } from "../../types/sharepoint.types";
@@ -10,13 +11,98 @@ export interface iPeoplePickerUserItem {
     id: string;
     /** LoginName of the principal. */
     loginName: string;
+
+    //todo: move these properties outside of this service, it should return the raw results 
+    //ISPPeopleSearchServiceResultBase | ISecGroupSearchResult | IFormsRoleSearchResult | IUserSearchResult | ISPGroupSearchResult
     imageUrl: string;
     imageInitials: string;
     text: string; // name
     secondaryText: string; // role
     tertiaryText: string; // status
     optionalText: string; // anything
+
+    entityType: "SecGroup" | "FormsRole" | "User" | "SPGroup",
+    jobTitle?: string;
+    aadId?: string;
+    department?: string;
+    email?: string;
+    mobilePhone?: string;
+    description?: string;
+    displayName?: string;
 }
+
+interface ISPPeopleSearchServiceResultBase {
+    Description: string;
+    DisplayText: string;
+    EntityData?: {
+        PrincipalType?: string;
+    }
+    EntityType: "SecGroup" | "FormsRole" | "User" | "SPGroup",
+    IsResolved: boolean;
+    Key: string;
+    MultipleMatches: any[];
+    ProviderDisplayName: string;
+    ProviderName: string;
+}
+
+interface ISecGroupSearchResult extends ISPPeopleSearchServiceResultBase {
+    EntityData?: {
+        PrincipalType?: string;
+        DisplayName: string;
+        Email: string;
+    },
+    EntityType: "SecGroup"
+}
+
+interface IFormsRoleSearchResult extends ISPPeopleSearchServiceResultBase {
+    EntityData: {},
+    EntityType: "FormsRole"
+}
+
+interface IUserSearchResult extends ISPPeopleSearchServiceResultBase {
+    EntityData: {
+        PrincipalType?: string;
+        Department: string;
+        Email: string;
+        IsAltSecIdPresent: boolean;
+        MobilePhone: string;
+        ObjectId: string;
+        Title: string;
+        UserKey: string;
+        OtherMails?: string[]
+    },
+    EntityType: "User"
+}
+
+interface ISPGroupSearchResult extends ISPPeopleSearchServiceResultBase {
+    EntityData: {
+        AccountName: string;
+        ObjectId: string;
+        PrincipalType: "SharePointGroup",
+        SPGroupID: string;
+        UserKey: string;
+    },
+    EntityType: "SPGroup"
+}
+
+type SPPeopleSearchServiceResult = { Id: string } & (ISPPeopleSearchServiceResultBase | ISecGroupSearchResult | IFormsRoleSearchResult | IUserSearchResult | ISPGroupSearchResult);
+
+function isSecGroupResult(result: ISPPeopleSearchServiceResultBase): result is ISecGroupSearchResult {
+    return (result as ISecGroupSearchResult).EntityType === "SecGroup";
+}
+
+function isFormsRoleResult(result: ISPPeopleSearchServiceResultBase): result is IFormsRoleSearchResult {
+    return (result as IFormsRoleSearchResult).EntityType === "FormsRole";
+}
+
+function isUserResult(result: ISPPeopleSearchServiceResultBase): result is IUserSearchResult {
+    return (result as IUserSearchResult).EntityType === "User";
+}
+
+function isSPGroupResult(result: ISPPeopleSearchServiceResultBase): result is ISPGroupSearchResult {
+    return (result as ISPGroupSearchResult).EntityType === "SPGroup";
+}
+
 /**
  * Service implementation to search people in SharePoint
  */
@@ -135,23 +221,26 @@ export class SPPeopleSearchService {
                 })
 
             if (userDataResp && userDataResp.value && userDataResp.value.length > 0) {
-                let values: any = userDataResp.value;
+                let values: SPPeopleSearchServiceResult[];
 
-                if (typeof userDataResp.value === "string") {
+                if (isString(userDataResp.value)) {
                     values = JSON.parse(userDataResp.value);
+                } else {
+                    values = userDataResp.value;
                 }
 
                 // Filter out "UNVALIDATED_EMAIL_ADDRESS"
-                values = values.filter(v => !(v.EntityData && v.EntityData.PrincipalType && v.EntityData.PrincipalType === "UNVALIDATED_EMAIL_ADDRESS"));
+                values = values.filter(v => !(v.EntityData
+                    && (v as ISPPeopleSearchServiceResultBase).EntityData.PrincipalType
+                    && (v as ISPPeopleSearchServiceResultBase).EntityData.PrincipalType === "UNVALIDATED_EMAIL_ADDRESS"));
 
                 // Check if local user IDs need to be retrieved
                 if (ensureUser) {
                     for (const value of values) {
                         // Only ensure the user if it is not a SharePoint group
-                        if (!value.EntityData || (value.EntityData && typeof value.EntityData.SPGroupID === "undefined")) {
+                        if (!value.EntityData || (value.EntityData && typeof (value as ISPGroupSearchResult).EntityData.SPGroupID === "undefined")) {
                             const id = await this.ensureUser(value.Key);
-                            value.LoginName = value.Key;
-                            value.Key = id;
+                            value.Id = `${id}`;
                         }
                     }
                 }
@@ -159,42 +248,60 @@ export class SPPeopleSearchService {
                 // Filter out NULL keys
                 values = values.filter(v => v.Key !== null);
                 const userResults = values.map(element => {
-                    switch (element.EntityType) {
-                        case 'User':
-                            return {
-                                id: element.Key,
-                                loginName: element.LoginName ? element.LoginName : element.Key,
-                                imageUrl: this.generateUserPhotoLink(element.Description || ""),
-                                imageInitials: this.getFullNameInitials(element.DisplayText),
-                                text: element.DisplayText, // name
-                                secondaryText: element.EntityData.Email || element.Description, // email
-                                tertiaryText: "", // status
-                                optionalText: "" // anything
-                            } as iPeoplePickerUserItem;
-                        case 'SecGroup':
-                            return {
-                                id: element.Key,
-                                loginName: element.LoginName ? element.LoginName : element.Key,
-                                imageInitials: this.getFullNameInitials(element.DisplayText),
-                                text: element.DisplayText,
-                                secondaryText: element.ProviderName
-                            } as iPeoplePickerUserItem;
-                        case 'FormsRole':
-                            return {
-                                id: element.Key,
-                                loginName: element.LoginName ? element.LoginName : element.Key,
-                                imageInitials: this.getFullNameInitials(element.DisplayText),
-                                text: element.DisplayText,
-                                secondaryText: element.ProviderName
-                            } as iPeoplePickerUserItem;
-                        default:
-                            return {
-                                id: element.EntityData.SPGroupID,
-                                loginName: element.EntityData.AccountName,
-                                imageInitials: this.getFullNameInitials(element.DisplayText),
-                                text: element.DisplayText,
-                                secondaryText: element.EntityData.AccountName
-                            } as iPeoplePickerUserItem;
+                    if (isUserResult(element)) {
+                        return {
+                            id: `${element.Id || element.Key}`,
+                            loginName: element.Key,
+                            imageUrl: this.generateUserPhotoLink(element.Description || ""),
+                            imageInitials: this.getFullNameInitials(element.DisplayText),
+                            text: element.DisplayText, // name
+                            secondaryText: element.EntityData.Email || element.Description, // email
+                            tertiaryText: "", // status
+                            optionalText: "", // anything
+                            entityType: "User",
+                            description: element.Description,
+                            department: element.EntityData.Department,
+                            email: element.EntityData.Email || element.Description,
+                            mobilePhone: element.EntityData.MobilePhone,
+                            aadId: element.EntityData.ObjectId,
+                            jobTitle: element.EntityData.Title,
+                            displayName: element.DisplayText
+                        } as iPeoplePickerUserItem;
+                    } else if (isSecGroupResult(element)) {
+                        return {
+                            id: `${element.Id || element.Key}`,
+                            loginName: element.Key,
+                            imageInitials: this.getFullNameInitials(element.DisplayText),
+                            text: element.DisplayText,
+                            secondaryText: element.ProviderName,
+                            entityType: "SecGroup",
+                            email: element.EntityData.Email,
+                            description: element.Description,
+                            displayName: element.EntityData.DisplayName || element.DisplayText
+                        } as iPeoplePickerUserItem;
+                    } else if (isFormsRoleResult(element)) {
+                        return {
+                            id: `${element.Id || element.Key}`,
+                            loginName: element.Key,
+                            imageInitials: this.getFullNameInitials(element.DisplayText),
+                            text: element.DisplayText,
+                            secondaryText: element.ProviderName,
+                            entityType: "FormsRole",
+                            description: element.Description,
+                            displayName: element.DisplayText
+                        } as iPeoplePickerUserItem;
+                    } else {
+                        let spGroupResult = element as ISPGroupSearchResult;
+                        return {
+                            id: spGroupResult.EntityData.SPGroupID,
+                            loginName: spGroupResult.EntityData.AccountName,
+                            imageInitials: this.getFullNameInitials(element.DisplayText),
+                            text: element.DisplayText,
+                            secondaryText: spGroupResult.EntityData.AccountName,
+                            entityType: "SPGroup",
+                            description: spGroupResult.Description,
+                            displayName: spGroupResult.DisplayText || spGroupResult.EntityData.AccountName
+                        } as iPeoplePickerUserItem;
                     }
                 });
 
