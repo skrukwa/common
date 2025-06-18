@@ -1211,14 +1211,17 @@ export async function GetWebPropertyByName(name: string, siteUrl?: string) {
     return null;
 }
 
-export function getFormDigestSync(serverRelativeWebUrl?: string) {
-    var contextWebInformation = GetContextWebInformationSync(serverRelativeWebUrl);
-    return contextWebInformation && contextWebInformation.FormDigestValue || null;
-}
-
-export async function getFormDigest(serverRelativeWebUrl?: string) {
-    var contextWebInformation = await GetContextWebInformation(serverRelativeWebUrl);
-    return contextWebInformation && contextWebInformation.FormDigestValue || null;
+export function getFormDigest(serverRelativeWebUrl?: string, async?: true): Promise<string | null>
+export function getFormDigest(serverRelativeWebUrl?: string, async?: false): string | null
+export function getFormDigest(serverRelativeWebUrl?: string, async: boolean = false): string | null | Promise<string | null> {
+    if (async) {
+        return GetContextWebInformation(serverRelativeWebUrl).then(contextWebInformation => {
+            return contextWebInformation && contextWebInformation.FormDigestValue || null;
+        });
+    } else {
+        let contextWebInformation = GetContextWebInformationSync(serverRelativeWebUrl);
+        return contextWebInformation && contextWebInformation.FormDigestValue || null;
+    }
 }
 
 export interface spfxContext { legacyPageContext: typeof _spPageContextInfo }

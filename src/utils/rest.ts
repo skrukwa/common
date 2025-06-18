@@ -5,7 +5,7 @@ import { IDictionary } from "../types/common.types";
 import { AllRestCacheOptionsKeys, IJsonSyncResult, IRequestBody, IRequestObjects, IRestCacheOptions, IRestError, IRestOptions, IRestRequestOptions, jsonTypes } from "../types/rest.types";
 import { ConsoleLogger } from "./consolelogger";
 import { getCacheItem, setCacheItem } from "./localstoragecache";
-import {getFormDigest, getFormDigestSync} from "./sharepoint.rest/web";
+import { getFormDigest } from "./sharepoint.rest/web";
 
 var logger = ConsoleLogger.get("kwizcom.rest.module");
 const supressDebugMessages = true;
@@ -70,28 +70,23 @@ function fillHeaders(xhr: XMLHttpRequest, headers: { [key: string]: string; }) {
 }
 
 /**
- * Returns an XMLHttpRequest that was opened synchronously (will block on .send())
+ * Depending on async:
+ * - Returns an XMLHttpRequest that was opened asynchronously (needs to have event listeners set up before .send()) or
+ * - Returns an XMLHttpRequest that was opened synchronously (will block on .send())
  */
-function getXhrSync(url: string, body?: IRequestBody, options?: IRestOptions): IRequestObjects {
+function getXhr(url: string, body?: IRequestBody, options?: IRestOptions, async?: true): Promise<IRequestObjects>
+function getXhr(url: string, body?: IRequestBody, options?: IRestOptions, async?: false): IRequestObjects
+function getXhr(url: string, body?: IRequestBody, options?: IRestOptions, async: boolean = false): IRequestObjects | Promise<IRequestObjects> {
 
     let [myOptions, myCacheOptions] = configureXhrHeaders(url, body, options);
 
     const xhr: XMLHttpRequest = new XMLHttpRequest();
-    xhr.open(myOptions.method, url, false);
+    xhr.open(myOptions.method, url, async);
 
     fillHeaders(xhr, myOptions.headers);
 
     if (myOptions.cors) {
         xhr.withCredentials = true;
-    }
-
-    if (myOptions.method === "GET" && myOptions.includeDigestInGet || myOptions.method === "POST" && myOptions.includeDigestInPost) {
-        const digest = getFormDigestSync(myOptions.spWebUrl);
-        if (digest) {
-            xhr.setRequestHeader("X-RequestDigest", digest);
-        } else {
-            console.warn("X-RequestDigest header not set due to getFormDigest returning null");
-        }
     }
 
     if (!isNullOrEmptyString(myOptions.responseType) && myOptions.responseType !== "text") {
@@ -102,30 +97,11 @@ function getXhrSync(url: string, body?: IRequestBody, options?: IRestOptions): I
         xhr.responseType = myOptions.responseType;
     }
 
-    return { xhr: xhr, options: myOptions, cacheOptions: myCacheOptions};
-}
+    const needsDigest =
+        (myOptions.method === "GET" && myOptions.includeDigestInGet) ||
+        (myOptions.method === "POST" && myOptions.includeDigestInPost);
 
-/**
- * Returns an XMLHttpRequest that was opened asynchronously (needs to have event listeners set up before .send())
- *
- * Should not make synchronous (blocking) calls in the process (i.e. while getting a request digest)
- * ^ todo: ensure this behaviour
- */
-async function getXhr(url: string, body?: IRequestBody, options?: IRestOptions): Promise<IRequestObjects> {
-
-    let [myOptions, myCacheOptions] = configureXhrHeaders(url, body, options);
-
-    const xhr: XMLHttpRequest = new XMLHttpRequest();
-    xhr.open(myOptions.method, url);
-
-    fillHeaders(xhr, myOptions.headers);
-
-    if (myOptions.cors) {
-        xhr.withCredentials = true;
-    }
-
-    if (myOptions.method === "GET" && myOptions.includeDigestInGet || myOptions.method === "POST" && myOptions.includeDigestInPost) {
-        const digest = await getFormDigest(myOptions.spWebUrl);
+    const applyDigest = (digest: string | null) => {
         if (digest) {
             xhr.setRequestHeader("X-RequestDigest", digest);
         } else {
@@ -133,15 +109,20 @@ async function getXhr(url: string, body?: IRequestBody, options?: IRestOptions):
         }
     }
 
-    if (!isNullOrEmptyString(myOptions.responseType) && myOptions.responseType !== "text") {
-        if (myCacheOptions.allowCache === true &&
-            (myOptions.responseType === "blob" || myOptions.responseType === "arraybuffer" || myOptions.responseType === "document")) {
-            logger.warn("When allowCache is true, Blob, ArrayBuffer and Document response types will only be stored in runtime memory and not committed to local storage.");
-        }
-        xhr.responseType = myOptions.responseType;
+    const result: IRequestObjects = { xhr, options: myOptions, cacheOptions: myCacheOptions };
+
+    if (needsDigest && async) {
+        return getFormDigest(myOptions.spWebUrl, true).then(digest => {
+            applyDigest(digest);
+            return result;
+        })
+    } else if (needsDigest && !async) {
+        const digest = getFormDigest(myOptions.spWebUrl, false);
+        applyDigest(digest);
+        return result;
     }
 
-    return { xhr: xhr, options: myOptions, cacheOptions: myCacheOptions};
+    return result;
 }
 
 function configureXhrHeaders(url: string, body?: IRequestBody, options?: IRestOptions): [IRestRequestOptions, IRestCacheOptions & { cacheKey?: string; }] {
@@ -166,7 +147,7 @@ function configureXhrHeaders(url: string, body?: IRequestBody, options?: IRestOp
         myOptions.method = isNullOrUndefined(body) ? "GET" : "POST";
     }
 
-    if (method === "POST" && isNullOrUndefined(myOptions.headers["content-type"])) {
+    if (myOptions.method === "POST" && isNullOrUndefined(myOptions.headers["content-type"])) {
         myOptions.headers["content-type"] = jsonType;
     }
 
@@ -352,7 +333,7 @@ function _canSafelyStringify(result: any) {
 export function GetJsonSync<T>(url: string, body?: IRequestBody, options?: IRestOptions): IJsonSyncResult<T> {
     let xhr: XMLHttpRequest = null;
     let syncResult: IJsonSyncResult<T> = null;
-    let objects = getXhrSync(url, body, options);
+    let objects = getXhr(url, body, options, false);
     try {
         var cachedResult = getCachedResult<T>(objects);
         if (!isNullOrUndefined(cachedResult)) {
@@ -416,7 +397,7 @@ export function GetJsonSync<T>(url: string, body?: IRequestBody, options?: IRest
 
 export async function GetJson<T>(url: string, body?: IRequestBody, options?: IRestOptions): Promise<T> {
     try {
-        let objects = await getXhr(url, body, options);
+        let objects = await getXhr(url, body, options, true);
         var cachedResult = getCachedResult<T>(objects);
         if (!isNullOrUndefined(cachedResult)) {
             if (!supressDebugMessages) {
