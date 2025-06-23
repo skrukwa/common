@@ -6,6 +6,7 @@ export * from './item';
 export * from './list';
 export * from './location';
 export * from './navigation-links';
-export * from './user-search';
+export * from './sp-people-search-service';
+export * from './timzone-map';
 export * from './user';
 export * from './web';
