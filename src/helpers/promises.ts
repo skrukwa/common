@@ -14,17 +14,18 @@ function _getGlobal() {
  * Lock all concurrent calls to a resource to one promise for a set duration of time.
  * @param {string} key - Unique key to identify the promise.
  * @param {() => Promise<T>} promiseFunc - Function that will return the promise to be run only once.
- * @param {number} duration - Duration to hold on to the promise result. (default=1)
+ * @param {number} duration - Duration in milliseconds to hold on to the promise result. (default=1000)
  * @returns {Promise<T>} Returns the single promise that will be fullfilled for all promises with the same key.
  * @example
  * // returns Promise<string>
  * var initTests = await promiseLock<string>("initTests", async () => { ... }, 2); 
  */
-export async function promiseLock<T>(key: string, promiseFunc: () => Promise<T>, duration = 1): Promise<T> {
+export async function promiseLock<T>(key: string, promiseFunc: () => Promise<T>, duration = 1000): Promise<T> {
+    duration = isNumber(duration) && duration >= 1 ? duration : 1000
     return promiseOnce(key, promiseFunc).then((result) => {
         (globalThis || window).setTimeout(() => {
             _deletePromiseByKey(key);
-        }, isNumber(duration) && duration >= 1 ? duration : 1);
+        }, duration);
         return result;
     });
 }
@@ -150,6 +151,37 @@ export async function retryAsync<T>(fn: (...args) => Promise<T>, numberOfRetries
         throw error;
     }
     throw new Error(`Failed retrying ${numberOfRetries} times`);
+}
+
+/**
+ * Provides the ability to have a promise/async funciton be exceuted with a timeout
+ * @param {number} fn - Promise to execute.
+ * @param {number} timeout - Timeout length in milliseconds.
+ * @returns {Promise<T>} Returns promise result or the promise is rejected error with a message of 'Timeout'.
+ */
+export async function promiseWithTimeout<T>(fn: Promise<T>, timeout: number) {
+    return Promise
+        .race([
+            fn,
+            new Promise((resolve, reject) =>
+                setTimeout(() => reject(new Error('Timeout')), timeout)
+            )
+        ]) as Promise<T>;
+}
+
+export async function promiseWithAbort<T>(fn: Promise<T>, options: { signal: AbortSignal }) {
+    return new Promise<T>((resolve, reject) => {
+        const { signal } = options;
+        if (signal.aborted) {
+            return reject(signal.reason)
+        }
+        signal.addEventListener("abort", () => {
+            reject(signal.reason)
+        })
+        fn.then((result) => {
+            resolve(result);
+        });
+    });
 }
 
 function _deletePromiseByKey(key: string) {
