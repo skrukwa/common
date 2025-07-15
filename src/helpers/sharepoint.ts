@@ -168,8 +168,10 @@ export function NormalizeListName(list: { EntityTypeName: string; BaseType: numb
 export class SPBasePermissions {
     private $High = 0;
     private $Low = 0;
-    public constructor(EffectiveBasePermissions: { High: number; Low: number; }) {
-        this.initPropertiesFromJson(EffectiveBasePermissions);
+    public constructor(EffectiveBasePermissions: SPBasePermissionKind | { High: number; Low: number; }) {
+        if (!isNullOrUndefined((EffectiveBasePermissions as any).High))
+            this.initPropertiesFromJson((EffectiveBasePermissions as { High: number; Low: number; }));
+        else this.set(EffectiveBasePermissions as SPBasePermissionKind);
     }
     public set(perm: SPBasePermissionKind) {
         if (perm === SPBasePermissionKind.FullMask) {
@@ -274,6 +276,9 @@ export class SPBasePermissions {
         if (!isNullOrNaN(EffectiveBasePermissions.Low)) {
             this.$Low = EffectiveBasePermissions.Low;
         }
+    }
+    public toJson() {
+        return { High: this.$High, Low: this.$Low };
     }
 }
 

@@ -610,6 +610,8 @@ export enum UserCustomActionRegistrationType {
     FileType = 4
 }
 
+export type UserCustomActionRegistrationTypeNames = keyof typeof UserCustomActionRegistrationType;
+
 // eslint-disable-next-line no-shadow
 export enum UserCustomActionScope {
     Unknown = 0,
@@ -628,7 +630,8 @@ export interface IUserCustomActionInfo {
     Name: string;
     RegistrationId: string;
     RegistrationType: UserCustomActionRegistrationType;
-    Rights: IBasePermissions | SPBasePermissionKindNames;
+    /** to use a permission kind call: new SPBasePermissions(SPBasePermissionKind.ManageLists).toJson() */
+    Rights: IBasePermissions;
     Scope: UserCustomActionScope;
     ScriptBlock: string;
     ScriptSrc: string;

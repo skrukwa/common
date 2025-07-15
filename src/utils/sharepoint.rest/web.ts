@@ -1105,7 +1105,7 @@ function _convertCustomActionToPostData(action: Omit<Partial<IUserCustomActionIn
     };
     if (hasRights) {
         partialAction = {
-            Rights: isString(action.Rights) ? action.Rights : {
+            Rights: {
                 High: `${action.Rights.High}`,
                 Low: `${action.Rights.Low}`
             }
