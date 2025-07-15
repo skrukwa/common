@@ -628,7 +628,7 @@ export interface IUserCustomActionInfo {
     Name: string;
     RegistrationId: string;
     RegistrationType: UserCustomActionRegistrationType;
-    Rights: IBasePermissions;
+    Rights: IBasePermissions | SPBasePermissionKindNames;
     Scope: UserCustomActionScope;
     ScriptBlock: string;
     ScriptSrc: string;
@@ -865,6 +865,7 @@ export enum SPBasePermissionKind {
      */
     FullMask = 65
 }
+export type SPBasePermissionKindNames = keyof typeof SPBasePermissionKind;
 
 export const SPBasePermissionMask = {
     EmptyMask: { High: 0x0, Low: 0x0 },

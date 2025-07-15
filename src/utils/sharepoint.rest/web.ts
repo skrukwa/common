@@ -1081,7 +1081,7 @@ function _parseCustomActionReponse(action: IUserCustomActionInfo) {
         return action;
     }
 
-    if (!isNullOrUndefined(action.Rights)) {
+    if (!isNullOrUndefined(action.Rights) && !isString(action.Rights)) {
         if (isNumeric(action.Rights.High)) {
             action.Rights.High = Number(action.Rights.High)
         }
@@ -1098,14 +1098,14 @@ function _convertCustomActionToPostData(action: Omit<Partial<IUserCustomActionIn
     //a list are stored using numbers.
     let hasRights = !isNullOrUndefined(action.Rights);
     let partialAction: {
-        Rights: {
+        Rights: string | {
             High: string;
             Low: string;
         };
     };
     if (hasRights) {
         partialAction = {
-            Rights: {
+            Rights: isString(action.Rights) ? action.Rights : {
                 High: `${action.Rights.High}`,
                 Low: `${action.Rights.Low}`
             }
