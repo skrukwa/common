@@ -1,6 +1,9 @@
-import { firstOrNull, getCacheItem, getUniqueId, IRestOptions, setCacheItem } from "../../exports-index";
+import { firstOrNull } from "../../helpers/collections.base";
+import { getUniqueId } from "../../helpers/random";
 import { isNullOrEmptyString, isNullOrUndefined, isNumber } from "../../helpers/typecheckers";
 import { SPFxAuthToken, SPFxAuthTokenType } from "../../types/auth";
+import { IRestOptions } from "../../types/rest.types";
+import { getCacheItem, setCacheItem } from "../localstoragecache";
 import { GetJson, GetJsonSync } from "../rest";
 import { GetRestBaseUrl } from "../sharepoint.rest/common";
 

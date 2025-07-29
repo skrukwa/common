@@ -1,7 +1,10 @@
-import { ConsoleLogger, GetCurrentUserSync, GetListRootFolderSync, GetListSync, GetListViewsSync, GetSiteIdSync, GetWebIdSync } from "../exports-index";
 import { IDictionary } from "../types/common.types";
 import { FieldTypeAsString, FieldTypes, IFieldCalculatedInfo, IFieldInfo, IFieldInfoEX, IFieldJsonSchema, IFieldTaxonomyInfo, PrincipalType, RententionLabelFieldValueType, SPBasePermissionKind, ThumbnailValueType, UrlValueType } from "../types/sharepoint.types";
 import { UserEntityValueType } from "../types/sharepoint.utils.types";
+import { ConsoleLogger } from "../utils/consolelogger";
+import { GetListRootFolderSync, GetListSync, GetListViewsSync } from "../utils/sharepoint.rest/list";
+import { GetCurrentUserSync } from "../utils/sharepoint.rest/user";
+import { GetSiteIdSync, GetWebIdSync } from "../utils/sharepoint.rest/web";
 import { isElement, waitFor, waitForWindowObject } from "./browser";
 import { firstOrNull, forEach } from "./collections.base";
 import { deleteCookie, getCookie, setCookie } from "./cookies";
