@@ -78,7 +78,7 @@ export function ensureClassicExperience(listId: string) {
         setCookie(MODERN_EXPERIENCE_TEMP_COOKIE_NAME, splnu);
     }
     if (isString(mobile)) {
-        setCookie(MOBILE_EXPERIENCE_TEMP_COOKIE_NAME, splnu);
+        setCookie(MOBILE_EXPERIENCE_TEMP_COOKIE_NAME, mobile);
     }
     setCookie(MOBILE_EXPERIENCE_COOKIE_NAME, "0", null, "/");
     switchToClassicExperience(listId);
@@ -103,7 +103,7 @@ export function switchToModernExperience(reload?: boolean) {
 export function SchemaXmlToJson(xml: string): IFieldJsonSchema {
     let result: IFieldJsonSchema = { Attributes: {}, Customizations: {} };
     try {
-        if (!isNullOrEmptyString(xml !== null)) {
+        if (xml) {
             //IE9+ supports this, we don't need to support IE8 anymore
             let SchemaXmlDoc: Document = new DOMParser().parseFromString(xml, "text/xml");
             let xField = SchemaXmlDoc.getElementsByTagName("Field")[0];
@@ -112,14 +112,12 @@ export function SchemaXmlToJson(xml: string): IFieldJsonSchema {
             }
 
             let properties = xField.querySelectorAll("Customization>ArrayOfProperty>Property");
-            if (properties && properties.length > 0) {
-                properties.forEach(p => {
-                    let name = p.querySelector("Name");
-                    let value = p.querySelector("Value");
-                    if (name && value && !isNullOrEmptyString(name.textContent))
-                        result.Customizations[name.textContent] = value.textContent;
-                });
-            }
+            properties.forEach(p => {
+                let name = p.querySelector("Name");
+                let value = p.querySelector("Value");
+                if (name && value && !isNullOrEmptyString(name.textContent))
+                    result.Customizations[name.textContent] = value.textContent;
+            });
         }
     } catch (e) { }
     return result;
